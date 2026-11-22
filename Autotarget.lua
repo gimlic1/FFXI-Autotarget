@@ -29,44 +29,51 @@ end
 
 
 function target1()
-	windower.send_command('setkey TAB down')
-    coroutine.sleep(0.01)
-    windower.send_command('setkey TAB up')
-    coroutine.sleep(0.1)
-		
+	-- [2026-11-22 Fix] Was: recursive target1() with no running check, no hpp/distance check, and misleading 'Found Depthswalker Crab' message
+	while running do
+		if not running then return end
+		windower.send_command('setkey TAB down')
+		coroutine.sleep(0.01)
+		windower.send_command('setkey TAB up')
+		coroutine.sleep(0.1)
+
 		player = windower.ffxi.get_player()
-		
-		if windower.ffxi.get_mob_by_target( 't' ) == nil then
-            windower.add_to_chat(200, 'AutoTarget: No target, cycling.' )
-			coroutine.sleep (0.1)
-			target1()
-		elseif windower.ffxi.get_mob_by_target('t').name == "Apex Toad" then
-			windower.add_to_chat(200, 'AutoTarget: Found Depthswalker Crab')
+		local mob = windower.ffxi.get_mob_by_target('t')
+
+		if mob == nil then
+			windower.add_to_chat(200, 'AutoTarget: No target, cycling.')
+			coroutine.sleep(0.1)
+		elseif mob.name == "Apex Toad" and mob.hpp > 0 and mob.distance and math.sqrt(mob.distance) < 20 then
+			windower.add_to_chat(200, 'AutoTarget: Found ' .. mob.name)
 			coroutine.sleep(0.5)
 			windower.chat.input('/attack <t>')
 			coroutine.sleep(2)
-        else
-            coroutine.sleep(0.1)
-			target1()
+			return
+		else
+			coroutine.sleep(0.1)
 		end
+	end
 end	
 
 
 function AssistParty()
-	party = windower.ffxi.get_party()
-	for i=1,party.count do
-		if player.status == 'Engaged' then
+	local party = windower.ffxi.get_party()
+	-- [2026-11-22 Fix] Was: for i=1,party.count do / if player.status == 'Engaged' / party[i].mob / '/assist ..party[i].name..'
+	for i = 1, 5 do
+		player = windower.ffxi.get_player()
+		if player and player.status == 1 then
 			return
 		end
-		if party[i].mob == nil or i==1 then
-			coroutine.sleep (0.1)
-		else		
-			windower.chat.input('/assist ..party[i].name..')
-			coroutine.sleep (0.1)
-			if windower.ffxi.get_mob_by_target( 't' ) ~= nil then
+		local member = party and party['p'..i]
+		if not (member and member.mob) then
+			coroutine.sleep(0.1)
+		else
+			windower.chat.input('/assist "' .. member.name .. '"')
+			coroutine.sleep(0.1)
+			if windower.ffxi.get_mob_by_target('t') ~= nil then
 				windower.chat.input('/attack <t>')
-				coroutine.sleep (2)
-			coroutine.sleep (0.1)
+				coroutine.sleep(2)
+				coroutine.sleep(0.1)
 			end
 		end
 	end
@@ -99,8 +106,8 @@ function AutoTarget_command(...)
 	elseif #arg == 1 and arg[ 1 ]:lower() == 'help' then
         windower.add_to_chat(200, 'AutoTarget commands: start stop abort plant harvest. See readme for additional information.')
 	elseif #arg == 1 and arg[ 1 ]:lower() == 'ki' then
-        windower.add_to_chat(200, 'Checking Key Items')
-		Check_KI()
+        windower.add_to_chat(200, 'AutoTarget: Key Item check is not applicable to AutoTarget.') -- [2026-11-22 Fix] Was: Check_KI() (undefined leftover from Furrow.lua)
+		-- Check_KI()
 	else
 		end
 end
